@@ -78,6 +78,101 @@ python -m psn ingest --chatgpt export.zip --dry-run
 ChatGPT exports: Settings → Data Controls → Export Data.
 Claude exports: Settings → Account → Export Data.
 
+## MCP Server — Connect to Your Chat
+
+The PSN includes an MCP (Model Context Protocol) server so you can use your personal compass directly from Claude Desktop, Claude Code, Cursor, Cline, or any MCP-compatible client.
+
+### Setup
+
+**1. Build the PSN first** (see Quick Start above), then feed it your thoughts.
+
+**2. Add to your MCP client config:**
+
+For **Claude Desktop** (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "psn": {
+      "command": "python",
+      "args": ["-m", "psn.mcp_server"],
+      "cwd": "/path/to/post-reasoning-engine",
+      "env": {
+        "PSN_CHECKPOINT": "/path/to/post-reasoning-engine/psn/checkpoints/psn_latest.pt"
+      }
+    }
+  }
+}
+```
+
+For **Claude Code** (`.claude/settings.json`):
+```json
+{
+  "mcpServers": {
+    "psn": {
+      "command": "python",
+      "args": ["-m", "psn.mcp_server"],
+      "cwd": "/path/to/post-reasoning-engine",
+      "env": {
+        "PSN_CHECKPOINT": "/path/to/post-reasoning-engine/psn/checkpoints/psn_latest.pt"
+      }
+    }
+  }
+}
+```
+
+For **Cursor** (`~/.cursor/mcp.json`):
+```json
+{
+  "mcpServers": {
+    "psn": {
+      "command": "python",
+      "args": ["-m", "psn.mcp_server"],
+      "cwd": "/path/to/post-reasoning-engine"
+    }
+  }
+}
+```
+
+Replace `/path/to/post-reasoning-engine` with your actual clone path. Use the venv Python if needed (e.g., `/path/to/post-reasoning-engine/.venv/bin/python`).
+
+**3. Restart your client.** You should see 4 new tools available.
+
+### MCP Tools
+
+| Tool | What it does |
+|------|-------------|
+| `recall` | Query the network with a natural language cue. Returns associated thought patterns with similarity scores. |
+| `store` | Add a new thought to the network. Hebbian learning fires immediately. |
+| `compass` | Decision validation — surfaces your own thought patterns most relevant to a decision or dilemma. Returns a signal strength (STRONG/MODERATE/WEAK). |
+| `status` | Network metrics: neuron count, stored patterns, weight norms, memory usage. |
+
+### Example Usage (in chat)
+
+> **You**: I'm considering leaving my stable job to start a company. Use my PSN compass to check.
+>
+> **Claude** (calls `compass`): Your PSN shows STRONG resonance (0.52). Here are the patterns it surfaced from your own thoughts:
+> - "I am more of a 0-to-1 builder than a 1-to-100 optimizer" (0.58)
+> - "The constraint is the enabler, not the blocker" (0.49)
+> - "Build runway first, then jump" (0.47)
+>
+> Your stored patterns suggest you identify as a builder who thrives under constraint, but your own thinking also includes a pragmatic runway-first approach.
+
+### HTTP Mode
+
+For remote or multi-client access:
+
+```bash
+python -m psn.mcp_server --http --port 8430
+```
+
+This starts a streamable-HTTP MCP server at `http://localhost:8430/mcp`.
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `PSN_CHECKPOINT` | Path to checkpoint file (overrides auto-detection) |
+
 ## Project Structure
 
 ```
@@ -93,6 +188,7 @@ psn/
     persistence.py      # Checkpoint save/load
     cli.py              # Command-line interface
     ingest.py           # Conversation extraction and chunking
+    mcp_server.py       # MCP server (stdio + HTTP transports)
 buildpsn.sh             # One-command setup
 requirements.txt        # Dependencies
 ```
@@ -101,12 +197,15 @@ requirements.txt        # Dependencies
 
 - Python 3.10+
 - PyTorch 2.0+ (CUDA optional — works on CPU too)
+- FastMCP 1.0+ (for MCP server)
 - ~400MB disk for the network + embedding model
 - Any GPU with 2GB+ VRAM (or CPU-only mode)
 
 ## Validation Results
 
-Tested against 15 historical decision inflection points from one person's conversation history:
+Tested against 33 historical decision inflection points from one person's conversation history (86,505 stored thoughts):
+
+**Round 1 — 15 life + career decisions:**
 
 | Metric | Result |
 |---|---|
@@ -115,7 +214,16 @@ Tested against 15 historical decision inflection points from one person's conver
 | Partially aligned | 2 (13.3%) |
 | Wrong direction | 0 (0%) |
 
-The compass never pointed the wrong way. At worst, it captured the tension without fully resolving it.
+**Round 2 — 18 architectural + technical decisions:**
+
+| Metric | Result |
+|---|---|
+| Decisions tested | 18 |
+| Strong alignment | 17 (94.4%) |
+| Moderate alignment | 1 (5.6%) |
+| Weak / wrong | 0 (0%) |
+
+The compass never pointed the wrong way across 33 tested decisions.
 
 ### Example: Career Decision
 
@@ -127,7 +235,15 @@ The compass never pointed the wrong way. At worst, it captured the tension witho
 
 **What actually happened**: Stayed for runway, built the startup on the side, exited on his own terms.
 
-The network surfaced the person's own reasoning — patterns stored months earlier — that aligned with the decision they eventually made.
+### Example: Architecture Decision
+
+**Cue**: "catastrophic forgetting is collision not decay slot competition"
+
+**PSN returned**:
+- `[0.737]` "Catastrophic forgetting? more like Catastrophic collisions..."
+- `[0.563]` "Stage 3 — Early Attention Layers (Pattern Hooking)..."
+
+The network surfaced the person's own reasoning — patterns stored months earlier — that aligned with decisions they eventually made.
 
 ## The Science
 
@@ -138,7 +254,7 @@ The network surfaced the person's own reasoning — patterns stored months earli
 
 ## Combining with Pre-Reasoning
 
-This engine is the **post** half. For the **pre** half (structural analysis before LLM commitment), see the [Pre-Reasoning Engine](https://github.com/luislozanogmia/pre-reasoning-engine).
+This engine is the **post** half. For the **pre** half (structural analysis before LLM commitment), see the [Pre-Reasoning Engine](https://www.mia-labs.com/pre-reasoning).
 
 Together:
 ```
