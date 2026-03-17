@@ -78,7 +78,7 @@ def get_psn() -> PSN:
 mcp = FastMCP(
     "Personal Synaptic Network",
     instructions=(
-        "Personal Synaptic Network (PSN) — a 50K-neuron associative memory "
+        "Personal Synaptic Network (PSN) — a Hopfield associative memory "
         "that stores thought patterns via Hebbian learning. Use 'recall' to "
         "query the network with a natural language cue and get back the most "
         "associated stored thoughts. Use 'store' to add new thoughts. "

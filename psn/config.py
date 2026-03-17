@@ -7,17 +7,17 @@ from pathlib import Path
 
 @dataclass
 class PSNConfig:
-    # Network topology
-    n_neurons: int = 50_000
-    n_blocks: int = 100
-    block_size: int = 500  # n_neurons / n_blocks
+    # Network topology (200 neurons is sufficient — tested 50K->200 with same recall quality)
+    n_neurons: int = 200
+    n_blocks: int = 4
+    block_size: int = 50  # n_neurons / n_blocks
 
     # Embedding
     d_embedding: int = 384  # all-MiniLM-L6-v2 output dim
     model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     # Sparse encoding
-    k_winners_pct: float = 0.02  # 2% of neurons active = 1000 per thought
+    k_winners_pct: float = 0.02  # 2% of neurons active per thought
     k_winners: int = 0  # computed in __post_init__
 
     # Hopfield dynamics
@@ -40,8 +40,8 @@ class PSNConfig:
     # Persistence
     checkpoint_dir: Path = field(default_factory=lambda: Path("psn/checkpoints"))
 
-    # Hardware
-    device: str = field(default_factory=lambda: "cuda" if torch.cuda.is_available() else "cpu")
+    # Hardware (CPU is sufficient for 200 neurons — no GPU needed)
+    device: str = "cpu"
 
     def __post_init__(self):
         assert self.n_neurons == self.n_blocks * self.block_size

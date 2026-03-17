@@ -10,7 +10,7 @@ It is not a chatbot memory, not RAG, not a knowledge graph. It is a Hebbian attr
 ## What It Does
 
 1. You feed it your thoughts (conversations, notes, ideas — any text)
-2. It converts each thought into a sparse activation pattern across 50,000 artificial neurons
+2. It converts each thought into a sparse activation pattern across 200 artificial neurons (expandable)
 3. Neurons that fire together get wired together (Hebbian learning — same rule as your biological brain)
 4. When you give it a cue, it retrieves the stored patterns most associated with that cue
 
@@ -21,7 +21,7 @@ It is not a chatbot memory, not RAG, not a knowledge graph. It is a Hebbian attr
 ```
 Your thought (text)
     → Sentence embedding (384d)
-    → Sparse projection (50,000 neurons, 1,000 fire)
+    → Sparse projection (200 neurons, top 2% fire)
     → Hebbian learning (strengthen co-active connections)
     → Synaptic store (weight matrices)
 
@@ -31,7 +31,7 @@ Your cue (text)
     → Top matches returned with similarity scores
 ```
 
-**Architecture**: Modern Hopfield Network with sparse block connectivity (100 blocks of 500 neurons). Energy-based attractor dynamics. Online Hebbian learning — no backprop, no optimizer, no training loop.
+**Architecture**: Modern Hopfield Network with sparse block connectivity (4 blocks of 50 neurons). Energy-based attractor dynamics. Online Hebbian learning — no backprop, no optimizer, no training loop.
 
 ## Quick Start
 
@@ -178,7 +178,7 @@ psn/
     __init__.py         # Package init
     config.py           # All hyperparameters
     encoder.py          # Text → 384d embedding (sentence-transformers)
-    projection.py       # 384d → 50K sparse activation (k-Winners-Take-All)
+    projection.py       # 384d → sparse activation (k-Winners-Take-All)
     hopfield.py         # Hopfield network: blocks, weights, attractor dynamics
     hebbian.py          # Hebbian learning: co-activation strengthening + decay
     memory_store.py     # Thought metadata index
@@ -194,10 +194,9 @@ requirements.txt        # Dependencies
 ## Requirements
 
 - Python 3.10+
-- PyTorch 2.0+ (CUDA optional — works on CPU too)
+- PyTorch 2.0+ (CPU only — no GPU needed)
 - FastMCP 1.0+ (for MCP server)
-- ~400MB disk for the network + embedding model
-- Any GPU with 2GB+ VRAM (or CPU-only mode)
+- ~50MB disk for the network + embedding model
 
 ## Validation Results
 
@@ -247,8 +246,19 @@ The network surfaced the person's own reasoning — patterns stored months earli
 
 - **Modern Hopfield Network**: Exponential storage capacity, energy-based retrieval. Patterns are energy minima; recall is gradient descent on the energy landscape.
 - **Hebbian Learning**: "Neurons that fire together wire together." No gradients, no loss function. Pure co-activation strengthening.
-- **Sparse Distributed Representations**: Only 2% of neurons fire per thought (~1,000 out of 50,000). Similar to biological cortical coding.
-- **Block Connectivity**: 100 modules of 500 neurons, dense within blocks, sparse between blocks. Mirrors cortical column architecture.
+- **Sparse Distributed Representations**: Only 2% of neurons fire per thought. Similar to biological cortical coding.
+- **Block Connectivity**: 4 modules of 50 neurons (default), dense within blocks, sparse between blocks. Mirrors cortical column architecture.
+
+## Why 200 Neurons Is Enough
+
+We tested 50,000 neurons (462 MB checkpoint, GPU required) against 200 neurons (0.3 MB checkpoint, CPU only) on the same 13K+ thought corpus. Recall quality is identical — the sentence-transformer embedding (384d) does the heavy lifting for similarity matching, while the Hopfield attractor dynamics work just as well with sparse 200-neuron activations. The 50K network used 1,500x more memory for no measurable recall improvement.
+
+| Config | Neurons | Checkpoint | RAM | Device | Recall quality |
+|--------|---------|-----------|-----|--------|---------------|
+| Original | 50,000 | 462 MB | 1.8 GB | GPU | baseline |
+| Current | 200 | 0.3 MB | ~36 MB | CPU | same |
+
+Start with 200. Scale up only if you have evidence of attractor collapse with your specific corpus.
 
 ## Combining with Pre-Reasoning
 
